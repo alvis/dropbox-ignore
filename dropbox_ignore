@@ -1,0 +1,55 @@
+#!/bin/bash
+
+# check if git is installed
+if ! command -v git &> /dev/null
+then
+    >&2 echo "Error: git is not installed. Please install git and try again."
+    exit 1
+fi
+
+# check if inside a git repository
+if ! git rev-parse --is-inside-work-tree &> /dev/null
+then
+    >&2 echo "Error: This script must be run inside a git repository."
+    exit 1
+fi
+
+# determine the operating system
+OS="unknown"
+case "$(uname -s)" in
+    Darwin) OS="macos";;
+    Linux) OS="linux";;
+    CYGWIN*|MINGW*|MSYS*) OS="windows";;
+esac
+
+# function to set the com.dropbox.ignored attribute.
+dropbox_ignore() {
+    local path="$1"
+
+    case "$OS" in
+        macos)
+            xattr -w com.dropbox.ignored 1 "$path"
+            ;;
+        linux)
+            attr -s com.dropbox.ignored -V 1 "$path"
+            ;;
+        windows)
+            Set-Content -Stream com.dropbox.ignored -Value 1 -Path "$path"
+            ;;
+        *)
+            >&2 echo "Error: Unsupported operating system."
+            exit 1
+            ;;
+    esac
+}
+
+
+
+# use git ls-files to list matching files and folders, and apply the dropbox_ignore function
+matching_paths=$(git ls-files -coi --exclude-per-directory=.gitignore --directory)
+
+for path in $matching_paths; do
+    # apply the dropbox_ignore function to each matching path
+		echo Ignoreing "$path"
+    dropbox_ignore "$path"
+done
